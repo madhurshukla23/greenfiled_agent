@@ -1,0 +1,39 @@
+Azure Landing Zone Requirements - Contoso Corporation
+
+Project Overview:
+Contoso Corporation needs to establish a secure, compliant Azure Landing Zone for their enterprise workloads.
+
+Network Requirements:
+- Hub-spoke network topology
+- 3 virtual networks: Hub (10.0.0.0/16), Prod (10.1.0.0/16), Dev (10.2.0.0/16)
+- VPN Gateway for on-premises connectivity (500 Mbps)
+- Azure Firewall in hub network
+- Network Security Groups on all subnets
+- Private DNS zones for Azure services
+
+Security Requirements:
+- All data must be encrypted at rest and in transit
+- Multi-factor authentication required for all users
+- Privileged Identity Management for admin access
+- Azure Key Vault for secrets management
+- Azure Defender enabled on all subscriptions
+
+Governance Requirements:
+- Separate subscriptions for Production and Development
+- Resource naming convention: {environment}-{resource-type}-{workload}-{region}-{instance}
+- Required tags: Environment, Owner, CostCenter, Project
+- Azure Policy for compliance enforcement
+- Management groups: Root > Contoso > [Production, Development]
+
+Compliance Requirements:
+- HIPAA compliance required
+- Data residency: All data must remain in US East region
+- Audit logs retention: 365 days
+- Regular compliance reporting
+
+Monitoring Requirements:
+- Centralized Log Analytics workspace
+- Azure Monitor for all resources
+- Application Insights for applications
+- Alerts for critical resource metrics
+- Monthly security reports

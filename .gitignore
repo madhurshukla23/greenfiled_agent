@@ -1,0 +1,56 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output
+output/
+temp/
+*.tmp
+
+# Workshop Results (generated at runtime)
+discovery_results_*.json
+checkpoint_*.json
+report_*.md
+report_*.docx
+report_*.xlsx
+architecture_*.txt
+architecture_*.html
+architecture_*.mmd
+
+# Test/Demo Scripts (can be recreated)
+test_*.py
+demo_*.py
+
+# Temporary Images
+*.png
+*.jpg
+*.jpeg

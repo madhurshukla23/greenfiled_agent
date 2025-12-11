@@ -1,0 +1,39 @@
+# Azure dependencies
+azure-storage-blob==12.19.0
+azure-identity==1.15.0
+azure-search-documents==11.4.0
+
+# Azure AI services
+azure-ai-formrecognizer==3.3.2
+azure-ai-documentintelligence==1.0.0b1
+azure-ai-vision-imageanalysis==1.0.0b2
+
+# Semantic Kernel
+semantic-kernel==1.39.0
+
+# Azure OpenAI (version required by semantic-kernel 1.39.0)
+openai>=1.98.0
+
+# Document processing
+python-docx==1.1.0
+python-pptx==0.6.23
+PyPDF2==3.0.1
+Pillow>=11.0.0
+pypdf==4.0.1
+openpyxl==3.1.2
+
+# Data processing
+pydantic==2.6.1
+python-dotenv==1.0.1
+jsonschema==4.21.1
+
+# Utilities
+aiohttp==3.9.3
+tenacity==8.2.3
+
+# Interactive CLI
+rich==13.7.0
+
+# Report generation
+reportlab==4.0.7
+matplotlib==3.8.2

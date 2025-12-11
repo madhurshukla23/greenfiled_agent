@@ -1,0 +1,42 @@
+Whiteboard Session Notes - December 2025
+
+Attendees: John Smith (CTO), Sarah Johnson (Security Lead), Mike Chen (Network Architect)
+
+Key Discussion Points:
+
+1. Network Architecture
+   - Decided on hub-spoke topology for better isolation
+   - Hub VNet will host shared services (firewall, VPN gateway, DNS)
+   - Spoke VNets for production and development workloads
+   - Consider Azure Virtual WAN for future multi-region expansion
+
+2. Security Posture
+   - Zero trust approach
+   - No public endpoints for databases and storage
+   - Private endpoints for all PaaS services
+   - Network traffic must go through firewall for inspection
+   - Consider Azure Bastion for VM access (no public IPs)
+
+3. Identity and Access
+   - Azure AD as primary identity provider
+   - Federate with on-premises AD
+   - Conditional access policies
+   - Break-glass accounts for emergency access
+
+4. Backup and DR
+   - RPO: 4 hours
+   - RTO: 8 hours for critical workloads
+   - Azure Backup for VMs
+   - Geo-redundant storage for critical data
+   - Secondary region: US West 2
+
+5. Cost Management
+   - Budget alerts at 80% and 90% of monthly allocation
+   - Reserved instances for predictable workloads
+   - Auto-shutdown for dev/test VMs
+   - Monthly cost reviews
+
+Open Questions:
+- Do we need ExpressRoute or is VPN sufficient? (Follow up with network team)
+- What's the exact list of workloads for migration? (Waiting for app team)
+- Disaster recovery region preference? (Check with business stakeholders)
