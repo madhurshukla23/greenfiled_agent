@@ -16,7 +16,7 @@ import openpyxl
 
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.documentintelligence import DocumentIntelligenceClient
-from azure.ai.documentintelligence.models import AnalyzeDocumentRequest, DocumentContentFormat
+from azure.ai.documentintelligence.models import AnalyzeDocumentRequest
 from azure.ai.vision.imageanalysis import ImageAnalysisClient
 from azure.ai.vision.imageanalysis.models import VisualFeatures
 
@@ -376,8 +376,7 @@ class DocumentProcessor:
             # Analyze document with layout model
             poller = self.doc_intelligence_client.begin_analyze_document(
                 "prebuilt-layout",
-                AnalyzeDocumentRequest(bytes_source=content),
-                output_content_format=DocumentContentFormat.MARKDOWN
+                AnalyzeDocumentRequest(bytes_source=content)
             )
             result = poller.result()
             

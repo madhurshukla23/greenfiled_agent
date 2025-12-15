@@ -23,12 +23,12 @@ pypdf==4.0.1
 openpyxl==3.1.2
 
 # Data processing
-pydantic==2.6.1
+pydantic>=2.6.1
 python-dotenv==1.0.1
 jsonschema==4.21.1
 
 # Utilities
-aiohttp==3.9.3
+aiohttp>=3.10.0
 tenacity==8.2.3
 
 # Interactive CLI
@@ -36,4 +36,4 @@ rich==13.7.0
 
 # Report generation
 reportlab==4.0.7
-matplotlib==3.8.2
+matplotlib>=3.9.0

@@ -31,7 +31,6 @@ from src.search_client import SearchIndexClient
 from src.document_processor import DocumentProcessor
 from src.models import ProcessedContent
 from src.validators import QuestionValidator, ValidationResult, ValidationSeverity
-from src.cost_estimator import AzureCostEstimator, AzureRegion
 from src.export_utils import ReportExporter
 
 logger = logging.getLogger(__name__)
@@ -73,9 +72,10 @@ class DiscoveryAgent:
         self.kernel = self._setup_kernel()
         self.session: Optional[DiscoverySession] = None
         self.use_search_index = True  # Flag to enable/disable search optimization
-        self.auto_save_interval = 5  # Auto-save every 5 answers
+        self.auto_save_interval = 1  # Auto-save after every answer (changed from 5)
         self.confidence_threshold = 0.85  # Auto-accept answers above this threshold
         self.answer_cache = {}  # Cache for validated answers
+        self.last_save_time = None  # Track last save for logging
         
     def _setup_kernel(self) -> Kernel:
         """Initialize Semantic Kernel"""
@@ -623,11 +623,15 @@ Only include questions where you found clear, relevant information. Return empty
         return answer, validations
     
     def _auto_save_checkpoint(self):
-        """Auto-save session checkpoint"""
+        """Auto-save session checkpoint after every answer"""
         try:
             checkpoint_file = f"checkpoint_{self.session.session_id}.json"
             self.export_discovery_results(checkpoint_file)
-            logger.info(f"✓ Auto-saved checkpoint: {checkpoint_file}")
+            self.last_save_time = datetime.now()
+            
+            # Log every 5 saves to avoid console clutter, but save happens every answer
+            if len(self.session.answers) % 5 == 0:
+                logger.info(f"💾 Auto-saved: {len(self.session.answers)} answers ({self.session.completion_percentage:.1f}% complete)")
         except Exception as e:
             logger.warning(f"Failed to auto-save checkpoint: {e}")
     
@@ -747,68 +751,6 @@ Only include questions where you found clear, relevant information. Return empty
             logger.error(f"Failed to import discovery results: {e}")
             return False
     
-    def estimate_costs(self) -> Optional[Dict]:
-        """Estimate Azure costs based on requirements gathered"""
-        if not self.session:
-            return None
-        
-        try:
-            # Extract key parameters from answers
-            requirements = self._extract_cost_parameters()
-            
-            # Use cost estimator
-            estimator = AzureCostEstimator(region=AzureRegion.EAST_US)
-            estimate = estimator.generate_full_estimate(requirements)
-            
-            return estimate
-        except Exception as e:
-            logger.error(f"Cost estimation failed: {e}")
-            return None
-    
-    def _extract_cost_parameters(self) -> Dict:
-        """Extract cost-relevant parameters from answers"""
-        params = {
-            'vm_count': 0,
-            'storage_tb': 0,
-            'connectivity_method': '',
-            'expressroute_bandwidth': '',
-            'use_firewall': True,
-            'web_workloads': False,
-        }
-        
-        # Parse answers to extract relevant info
-        for qid, answer in self.session.answers.items():
-            answer_text = answer.answer.lower()
-            
-            # Connectivity method
-            if 'net_003' == qid:
-                params['connectivity_method'] = answer.answer
-            
-            # ExpressRoute bandwidth
-            if 'net_004' == qid:
-                params['expressroute_bandwidth'] = answer.answer
-            
-            # VM count (estimate from workload descriptions)
-            if 'vm' in answer_text or 'virtual machine' in answer_text:
-                # Try to extract numbers
-                import re
-                numbers = re.findall(r'\d+', answer_text)
-                if numbers:
-                    params['vm_count'] = max(params['vm_count'], int(numbers[0]))
-            
-            # Storage (estimate from data volume)
-            if 'tb' in answer_text or 'terabyte' in answer_text:
-                import re
-                numbers = re.findall(r'(\d+)\s*tb', answer_text)
-                if numbers:
-                    params['storage_tb'] = max(params['storage_tb'], int(numbers[0]))
-        
-        # Default estimates if not specified
-        if params['vm_count'] == 0:
-            params['vm_count'] = 10  # Default assumption
-        
-        return params
-    
     def export_enhanced_report(self, output_path: str, format: str = 'pdf') -> str:
         """Export enhanced report with multiple formats"""
         if not self.session:
@@ -850,13 +792,5 @@ Only include questions where you found clear, relevant information. Return empty
         
         exporter = ReportExporter(results, self.session.session_id)
         
-        if format.lower() == 'pdf':
-            return exporter.export_to_pdf(output_path)
-        elif format.lower() == 'word' or format.lower() == 'docx':
-            return exporter.export_to_word(output_path)
-        elif format.lower() == 'excel' or format.lower() == 'xlsx':
-            return exporter.export_to_excel(output_path)
-        elif format.lower() == 'markdown' or format.lower() == 'md':
-            return exporter.export_to_markdown(output_path)
-        else:
-            return exporter.export_to_pdf(output_path)
+        # Only support markdown format
+        return exporter.export_to_markdown(output_path)

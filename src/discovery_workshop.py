@@ -4,6 +4,8 @@ Guides users through Azure Landing Zone discovery process
 """
 import asyncio
 import logging
+import signal
+import sys
 from datetime import datetime
 from typing import List, Optional
 from rich.console import Console
@@ -25,7 +27,6 @@ from src.discovery_framework import (
     DISCOVERY_QUESTIONS
 )
 from src.validators import ValidationSeverity
-from src.architecture_visualizer import ArchitectureVisualizer
 from src.interactive_helper import InteractiveHelper
 
 console = Console()
@@ -41,6 +42,9 @@ class DiscoveryWorkshopCLI:
         self.last_question = None  # Track last question for editing
         self.answers_this_session = []  # Track answers given this session
         self.helper = InteractiveHelper(self.agent)  # Interactive help system
+        
+        # Register signal handler for graceful shutdown (Ctrl+C)
+        signal.signal(signal.SIGINT, self._handle_shutdown)
     
     def find_latest_results(self) -> Optional[str]:
         """Find the most recent discovery results file"""
@@ -54,6 +58,21 @@ class DiscoveryWorkshopCLI:
         # Get the most recent file
         latest = max(result_files, key=os.path.getctime)
         return latest
+    
+    def _handle_shutdown(self, signum, frame):
+        """Handle graceful shutdown on Ctrl+C"""
+        console.print("\n[yellow]⚠️  Session interrupted. Saving progress...[/yellow]")
+        
+        # Save current state
+        if hasattr(self.agent, 'session') and len(self.agent.session.answers) > 0:
+            self.agent._auto_save_checkpoint()
+            console.print(f"[green]✓ Progress saved: {len(self.agent.session.answers)} answers stored[/green]")
+            console.print("[cyan]ℹ️  Resume later by selecting 'Resume from previous session'[/cyan]")
+        else:
+            console.print("[yellow]No answers to save yet.[/yellow]")
+        
+        console.print("\n[dim]Goodbye! 👋[/dim]\n")
+        sys.exit(0)
     
     def show_welcome(self):
         """Display welcome message"""
@@ -261,9 +280,18 @@ Let's get started! 🚀
             # Record answer with validation
             _, validations = await self.agent.ask_user_question(question, answer.strip())
             
+            # Check for validation errors
+            has_errors = any(v.severity == ValidationSeverity.ERROR for v in validations)
+            
             # Display validation results
             if validations:
                 self._display_validations(validations)
+            
+            # If validation errors, re-ask the question
+            if has_errors:
+                console.print("[yellow]Please provide a valid answer.\n[/yellow]")
+                await self._ask_single_question(question, current, total)
+                return
             
             # Track for editing
             self.last_question = question
@@ -438,101 +466,6 @@ Let's get started! 🚀
         console.print("[dim]  • Infrastructure-as-Code generation[/dim]")
         console.print("[dim]  • Stakeholder review and approval[/dim]\n")
     
-    def show_cost_estimate(self):
-        """Display cost estimation"""
-        console.print("\n[bold cyan]Cost Estimation[/bold cyan]")
-        console.print("[dim]Analyzing requirements to estimate Azure costs...[/dim]\n")
-        
-        estimate = self.agent.estimate_costs()
-        
-        if not estimate:
-            console.print("[yellow]Insufficient data for cost estimation[/yellow]\n")
-            return
-        
-        summary = estimate.get('summary', {})
-        
-        # Summary table
-        table = Table(title="Estimated Azure Costs", box=box.ROUNDED)
-        table.add_column("Category", style="cyan")
-        table.add_column("Monthly", style="green", justify="right")
-        table.add_column("Annual", style="green", justify="right")
-        
-        for category, data in estimate.get('breakdown', {}).items():
-            table.add_row(
-                category,
-                f"${data['monthly']:,.2f}",
-                f"${data['annual']:,.2f}"
-            )
-        
-        # Totals
-        table.add_row(
-            "[bold]Total[/bold]",
-            f"[bold]${summary['monthly_cost']:,.2f}[/bold]",
-            f"[bold]${summary['annual_cost']:,.2f}[/bold]",
-            style="bold"
-        )
-        
-        if summary.get('potential_savings', 0) > 0:
-            table.add_row(
-                "[green]Potential Savings[/green]",
-                "",
-                f"[green]-${summary['potential_savings']:,.2f}[/green]"
-            )
-            table.add_row(
-                "[bold]Net Annual Cost[/bold]",
-                "",
-                f"[bold]${summary['net_annual_cost']:,.2f}[/bold]",
-                style="bold green"
-            )
-        
-        console.print(table)
-        console.print(f"\n[dim]Region: {summary['region']} | Currency: {summary['currency']}[/dim]")
-        console.print("[dim]Note: Estimates are approximate and based on assumptions.[/dim]\n")
-    
-    def show_architecture_preview(self):
-        """Display architecture diagram preview"""
-        console.print("\n[bold cyan]Architecture Preview[/bold cyan]")
-        console.print("[dim]Generating Landing Zone architecture based on your answers...[/dim]\n")
-        
-        try:
-            # Get current discovery results
-            results = {
-                "session": {
-                    "id": self.agent.session.session_id,
-                    "timestamp": self.agent.session.timestamp.isoformat(),
-                    "completion": self.agent.session.completion_percentage
-                },
-                "summary": self.agent.get_discovery_summary(),
-                "answers": [
-                    {
-                        "question_id": qid,
-                        "question": DISCOVERY_QUESTIONS[qid].question,
-                        "category": DISCOVERY_QUESTIONS[qid].category.value,
-                        "priority": DISCOVERY_QUESTIONS[qid].priority.value,
-                        "answer": answer.answer,
-                        "source": answer.source,
-                        "confidence": answer.confidence,
-                        "document_reference": answer.document_reference
-                    }
-                    for qid, answer in self.agent.session.answers.items()
-                ]
-            }
-            
-            visualizer = ArchitectureVisualizer(results)
-            ascii_diagram = visualizer.generate_ascii_diagram()
-            
-            console.print("[green]" + ascii_diagram + "[/green]")
-            
-            # Offer to save diagrams
-            if Confirm.ask("\nSave architecture diagrams (HTML, Mermaid)?", default=False):
-                outputs = visualizer.save_all_formats()
-                console.print("\n[green]Architecture diagrams saved:[/green]")
-                for format_type, path in outputs.items():
-                    console.print(f"  • {format_type.upper()}: [cyan]{path}[/cyan]")
-                console.print()
-        except Exception as e:
-            console.print(f"[yellow]⚠ Could not generate architecture preview: {str(e)}[/yellow]\n")
-    
     async def run_workshop(self):
         """Run the complete discovery workshop"""
         try:
@@ -575,14 +508,6 @@ Let's get started! 🚀
             # Step 4: Final summary
             self.show_final_summary()
             
-            # Cost estimation
-            if Confirm.ask("\nWould you like to see cost estimates?", default=True):
-                self.show_cost_estimate()
-            
-            # Architecture preview
-            if Confirm.ask("\nWould you like to see the Landing Zone architecture?", default=True):
-                self.show_architecture_preview()
-            
             # Review and edit
             await self.review_and_edit_answers()
             
@@ -603,23 +528,16 @@ Let's get started! 🚀
             logging.exception("Workshop error")
     
     async def export_enhanced_reports(self):
-        """Export enhanced reports in multiple formats"""
-        console.print("\n[cyan]Generating professional reports...[/cyan]\n")
+        """Export enhanced reports in Markdown format"""
+        console.print("\n[cyan]Generating reports...[/cyan]\n")
         
-        formats = []
-        if Confirm.ask("Generate PDF report?", default=True):
-            formats.append(('pdf', f"report_{self.session_id}.pdf"))
-        if Confirm.ask("Generate Word document?", default=False):
-            formats.append(('docx', f"report_{self.session_id}.docx"))
-        if Confirm.ask("Generate Excel spreadsheet?", default=False):
-            formats.append(('xlsx', f"report_{self.session_id}.xlsx"))
-        
-        for format_type, filename in formats:
+        if Confirm.ask("Generate Markdown report?", default=True):
             try:
-                output = self.agent.export_enhanced_report(filename, format_type)
-                console.print(f"[green]✓[/green] {format_type.upper()} report: [cyan]{output}[/cyan]")
+                filename = f"report_{self.session_id}.md"
+                output = self.agent.export_enhanced_report(filename, 'markdown')
+                console.print(f"[green]✓[/green] Markdown report: [cyan]{output}[/cyan]")
             except Exception as e:
-                console.print(f"[yellow]⚠[/yellow] Could not generate {format_type.upper()}: {str(e)}")
+                console.print(f"[yellow]⚠[/yellow] Could not generate Markdown report: {str(e)}")
         
         console.print()
 
